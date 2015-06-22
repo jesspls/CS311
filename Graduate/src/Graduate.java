@@ -19,9 +19,9 @@ public class Graduate {
 		Scanner scanner = createScanner();
 
 		while (scanner.hasNext()) {
-			
+
 			min = Integer.MAX_VALUE;
-			
+
 			DirectedAcyclicGraph dag = new DirectedAcyclicGraph(Course.class);
 
 			// Reads in number of courses total and number of courses allowed
@@ -29,8 +29,8 @@ public class Graduate {
 			// semester
 			int numCourses = scanner.nextInt();
 			int numSemester = scanner.nextInt();
-			
-			if(numCourses == -1 && numSemester == -1){
+
+			if (numCourses == -1 && numSemester == -1) {
 				break;
 			}
 
@@ -47,29 +47,40 @@ public class Graduate {
 			addEdges(courses, dag, courses);
 
 			// Get first set of leaves (aka eligible courses to be taken)
-			Iterator iterator = dag.iterator();
-			ArrayList<Course> leaves = availableCourses(iterator, "F", dag);
+			ArrayList<Course> leaves = availableCourses(dag, "F");
 
 			backTrackMin("F", dag, numSemester, leaves, 0, courses);
 
-			System.out.println(min);
-			
+			System.out.println("The minimum number of semesters required to graduate is " + min + ".");
+
 			scanner.nextLine();
 		}
 
 	}
 
+	/**
+	 * recursively finds the min value of semesters needed to graduate
+	 * 
+	 * @param term
+	 * @param dag
+	 * @param numSemester
+	 * @param leaves
+	 * @param newMin
+	 * @param courses
+	 * @throws Exception
+	 */
+
 	public static void backTrackMin(String term, DirectedAcyclicGraph dag,
 			int numSemester, ArrayList<Course> leaves, int newMin,
 			Course[] courses) throws Exception {
 
-		// Can't figure this out
+		// Check to see if solution is found, or we have already gone over
+		// min
 		Iterator iterator = dag.iterator();
-		if (!iterator.hasNext()) {
+		if (!iterator.hasNext() || newMin == min) {
 			if (newMin < min) {
 				min = newMin;
 			}
-			newMin = 0;
 			return;
 		}
 
@@ -78,7 +89,9 @@ public class Graduate {
 		// Adds check to see if total courses can take are less than max,
 		// because then no set generation is necessary
 		if (leaves.size() <= numSemester) {
+
 			subsets.add(new HashSet<>(leaves));
+
 		}
 
 		// Generate subsets
@@ -87,42 +100,59 @@ public class Graduate {
 		}
 
 		// For each subset in subsets
-		for (int i = 0; i < subsets.size(); i++) {
+		for (Set<Course> courseSet : subsets) {
+			
+			//System.out.println(courseSet);
+			//System.out.println(dag);
 
 			List<Course> eDeleted = new ArrayList<>();
 			List<Course> vDeleted = new ArrayList<>();
-			moveForward(subsets.get(i), dag, vDeleted, eDeleted);
+			moveForward(courseSet, dag, vDeleted, eDeleted);
 			newMin++;
 
-			Iterator it = dag.iterator();
 			if (term.equals("F")) {
 				term = "S";
 			} else {
 				term = "F";
 			}
-			
-			ArrayList<Course> newLeaves = availableCourses(it, term, dag);
+
+			ArrayList<Course> newLeaves = availableCourses(dag, term);
 
 			backTrackMin(term, dag, numSemester, newLeaves, newMin, courses);
 
 			moveBackward(vDeleted, eDeleted, dag, courses);
 			newMin--;
+			
+			if (term.equals("F")) {
+				term = "S";
+			} else {
+				term = "F";
+			}
+
 		}
 
 	}
+
+	/**
+	 * Move forward by deleting the appropriate courses from the dag as well as
+	 * their edges, and store the deleted courses in an array, and the courses
+	 * with edges to the deleted courses in a seperate array for help during
+	 * moveBackward() method
+	 * 
+	 * @param subset
+	 * @param dag
+	 * @param vDeleted
+	 * @param eDeleted
+	 */
 
 	private static void moveForward(Set<Course> subset,
 			DirectedAcyclicGraph dag, List<Course> vDeleted,
 			List<Course> eDeleted) {
 
-		Iterator iterator = subset.iterator();
-
-		while (iterator.hasNext()) {
-			Course toDelete = (Course) iterator.next();
-			Set toAdd = dag.outgoingEdgesOf(toDelete);
-			Iterator it = toAdd.iterator();
-			while (it.hasNext()) {
-				Course course = (Course) dag.getEdgeTarget(it.next());
+		for (Course toDelete : subset) {
+			Set<Course> toAdd = (Set<Course>) dag.outgoingEdgesOf(toDelete);
+			for (Course c : toAdd) {
+				Course course = (Course) dag.getEdgeTarget(c);
 				if (!eDeleted.contains(course)) {
 					eDeleted.add(course);
 				}
@@ -132,6 +162,17 @@ public class Graduate {
 		}
 
 	}
+
+	/**
+	 * Step backward by readding the last deleted courses back to the dag,
+	 * including any edges that were deleted
+	 * 
+	 * @param vDeleted
+	 * @param eDeleted
+	 * @param dag
+	 * @param courses
+	 * @throws Exception
+	 */
 
 	private static void moveBackward(List<Course> vDeleted,
 			List<Course> eDeleted, DirectedAcyclicGraph dag, Course[] courses)
@@ -143,8 +184,8 @@ public class Graduate {
 		Course[] eCourses = new Course[eDeleted.size()];
 		eDeleted.toArray(eCourses);
 
-		for (int i = 0; i < vCourses.length; i++) {
-			dag.addVertex(vCourses[i]);
+		for (Course course : vCourses) {
+			dag.addVertex(course);
 		}
 
 		addEdges(eCourses, dag, courses);
@@ -215,9 +256,9 @@ public class Graduate {
 	public static Course findCourse(String name, Course[] courses)
 			throws Exception {
 
-		for (int i = 0; i < courses.length; i++) {
-			if (courses[i].name.equals(name))
-				return courses[i];
+		for (Course course : courses) {
+			if (course.name.equals(name))
+				return course;
 		}
 
 		System.out.println(name);
@@ -235,15 +276,12 @@ public class Graduate {
 	public static void addEdges(Course[] courses, DirectedAcyclicGraph dag,
 			Course[] toSearch) throws Exception {
 
-		for (int i = 0; i < courses.length; i++) {
-			if (courses[i].numPreReqs > 0) {
-				for (int j = 0; j < courses[i].numPreReqs; j++) {
-					Course begin = findCourse(courses[i].prereqs[j], toSearch);
-					if (dag.containsVertex(begin)) {
-						dag.addEdge(begin, courses[i]);
-					}
+		for (Course course : courses) {
+			for (String prereq : course.prereqs) {
+				Course begin = findCourse(prereq, toSearch);
+				if (dag.containsVertex(begin)) {
+					dag.addEdge(begin, course);
 				}
-
 			}
 		}
 	}
@@ -314,9 +352,10 @@ public class Graduate {
 	 * @return
 	 */
 
-	public static ArrayList<Course> availableCourses(Iterator iterator,
-			String term, DirectedAcyclicGraph dag) {
+	public static ArrayList<Course> availableCourses(DirectedAcyclicGraph dag,
+			String term) {
 
+		Iterator iterator = dag.iterator();
 		ArrayList<Course> courses = new ArrayList<Course>();
 
 		while (iterator.hasNext()) {

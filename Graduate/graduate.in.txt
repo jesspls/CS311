@@ -1,0 +1,6 @@
+4 2
+cs1 cs2 cs3 cs4
+cs1 F 0
+cs2 F 0
+cs3 F 0
+cs4 F 0
